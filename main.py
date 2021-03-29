@@ -1,45 +1,53 @@
+from datetime import datetime, timezone
+
+import numpy as np
+import pandas as pd
 from pyecobee import *
 
+from influx_writer import write_points_to_db
 from service import get_service
 
 ecobee_service = get_service()
 
-thermostat_summary_response = ecobee_service.request_thermostats_summary(
-    selection=Selection(
-        selection_type=SelectionType.REGISTERED.value, selection_match='', include_equipment_status=True
-    )
+thermostat_summary_response: EcobeeThermostatsSummaryResponse = ecobee_service.request_thermostats_summary(
+    selection=Selection(selection_type=SelectionType.REGISTERED.value, selection_match='')
 )
-print(thermostat_summary_response.pretty_format())
 
-# Only set the include options you need to True. I've set most of them to True for illustrative purposes only.
-selection = Selection(
-    selection_type=SelectionType.REGISTERED.value,
-    selection_match='',
-    include_alerts=True,
-    include_device=True,
-    include_electricity=True,
-    include_equipment_status=True,
-    include_events=True,
-    include_extended_runtime=True,
-    include_house_details=True,
-    include_location=True,
-    include_management=True,
-    include_notification_settings=True,
-    include_oem_cfg=False,
-    include_privacy=False,
-    include_program=True,
-    include_reminders=True,
-    include_runtime=True,
-    include_security_settings=False,
-    include_sensors=True,
-    include_settings=True,
-    include_technician=True,
-    include_utility=True,
-    include_version=True,
-    include_weather=True,
+# [('310130190774', 'Downstairs'), ('319264492718', 'Upstairs')]
+thermostats = {x[0]: x[1] for x in [x.split(':') for x in thermostat_summary_response.revision_list]}
+thermostat_ids = ','.join([t for t in thermostats])
+
+# eastern = timezone('US/Eastern')
+start = datetime(2021, 3, 1, 0, 0, 0, tzinfo=timezone.utc)
+end = datetime.now(tz=timezone.utc)
+runtime_report_response = ecobee_service.request_runtime_reports(
+    selection=Selection(selection_type=SelectionType.THERMOSTATS.value, selection_match=thermostat_ids),
+    start_date_time=start,
+    end_date_time=end,
+    columns='auxHeat1,auxHeat2,auxHeat3,compCool1,compCool2,compHeat1,compHeat2,dehumidifier,dmOffset,'
+    'economizer,fan,humidifier,hvacMode,outdoorHumidity,outdoorTemp,sky,ventilator,wind,zoneAveTemp,'
+    'zoneCalendarEvent,zoneClimate,zoneCoolTemp,zoneHeatTemp,zoneHumidity,zoneHumidityHigh,'
+    'zoneHumidityLow,zoneHvacMode,zoneOccupancy',
 )
-thermostat_response = ecobee_service.request_thermostats(selection)
-print(thermostat_response.pretty_format())
-assert thermostat_response.status.code == 0, 'Failure while executing request_thermostats:\n{0}'.format(
-    thermostat_response.pretty_format()
-)
+# print(runtime_report_response.pretty_format())
+assert runtime_report_response.status.code == 0, \
+    'Failure while executing request_runtime_reports:\n{0}'.format(runtime_report_response.pretty_format())
+
+timezonestr = 'US/Eastern'
+
+for rr in runtime_report_response.report_list:
+    thermostat_id = rr.thermostat_identifier
+    thermostat_name = thermostats[thermostat_id]
+    df: pd.DataFrame = pd.Series(rr.row_list).str.split(',', expand=True)
+    df = df.replace('', np.nan).astype(float, errors='ignore')
+
+    df.columns = ['Date', 'Time', *(runtime_report_response.columns.split(','))]
+    df['timestamp'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
+    df['timestamp'] = df['timestamp'].dt.tz_localize(timezonestr)
+    df.set_index('timestamp', inplace=True)
+    df.drop(['Date', 'Time'], axis=1, inplace=True)
+    df['thermostat_id'] = thermostat_id
+
+    write_points_to_db(df)
+
+print()

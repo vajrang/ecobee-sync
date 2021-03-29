@@ -1,12 +1,12 @@
 from cryptography.fernet import Fernet
 from pyecobee import *
 
-import config
+from config import *
 
 ECOBEE_SYNC_TOKENS_FILENAME = 'tokens.txt'
 
 ecobee_service = None
-f = Fernet(config.ECOBEE_ENCRYPTION_KEY)
+f = Fernet(ECOBEE_ENCRYPTION_KEY)
 
 
 def enc(text):
@@ -45,8 +45,8 @@ def get_service():
 
     global ecobee_service
     ecobee_service = EcobeeService(
-        thermostat_name=config.ECOBEE_THERMOSTAT_NAME,
-        application_key=config.ECOBEE_APPLICATION_KEY,
+        thermostat_name=ECOBEE_THERMOSTAT_NAME,
+        application_key=ECOBEE_APPLICATION_KEY,
         authorization_token=auth,
         access_token=access,
         refresh_token=refresh,

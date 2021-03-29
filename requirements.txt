@@ -1,2 +1,5 @@
-pyecobee
 cryptography
+pyecobee
+numpy
+pandas
+influxdb

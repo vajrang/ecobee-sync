@@ -6,7 +6,7 @@ import config
 ECOBEE_SYNC_TOKENS_FILENAME = 'tokens.txt'
 
 ecobee_service = None
-f = Fernet(config.ENCRYPTION_KEY)
+f = Fernet(config.ECOBEE_ENCRYPTION_KEY)
 
 
 def enc(text):

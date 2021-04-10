@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from pyecobee import *
 
-from influx_writer import write_points_to_db
+from influx_writer import *
 from service import get_service
 
 ecobee_service = get_service()
@@ -44,7 +44,7 @@ def fetch_data_and_store(start: datetime, end: datetime):
 
         df.columns = ['Date', 'Time', *(runtime_report_response.columns.split(','))]
         df['timestamp'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
-        df['timestamp'] = df['timestamp'].dt.tz_localize(timezonestr)
+        df['timestamp'] = df['timestamp'].dt.tz_localize(timezonestr, ambiguous='infer')
         df.set_index('timestamp', inplace=True)
         df.drop(['Date', 'Time'], axis=1, inplace=True)
         df['thermostat_id'] = thermostat_id
@@ -52,12 +52,15 @@ def fetch_data_and_store(start: datetime, end: datetime):
         write_points_to_db(df)
 
 
-start = begin = datetime(2021, 1, 1, tzinfo=timezone.utc)
+first = get_first_timestamp()
+last = get_last_timestamp()
+
+start = begin = last
+# start = begin = datetime(2020, 1, 1, tzinfo=timezone.utc)
 while True:
     if start > datetime.now(tz=timezone.utc):
         break
     end = start + timedelta(days=30)
-    print(f'{start} - {end}')
     fetch_data_and_store(start, end)
     start = end
 

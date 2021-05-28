@@ -54,7 +54,7 @@ def fetch_data_and_store(start: datetime, end: datetime):
 
 first = get_first_timestamp()
 last = get_last_timestamp()
-
+print(f'Last timestamp in db: {last}')
 start = begin = last
 # start = begin = datetime(2020, 1, 1, tzinfo=timezone.utc)
 while True:

@@ -9,9 +9,7 @@ from service import get_service
 
 ecobee_service = get_service()
 
-thermostat_summary_response: EcobeeThermostatsSummaryResponse = ecobee_service.request_thermostats_summary(
-    selection=Selection(selection_type=SelectionType.REGISTERED.value, selection_match='')
-)
+thermostat_summary_response: EcobeeThermostatsSummaryResponse = ecobee_service.request_thermostats_summary(selection=Selection(selection_type=SelectionType.REGISTERED.value, selection_match=''))
 
 # [('310130190774', 'Downstairs'), ('319264492718', 'Upstairs')]
 thermostats = {x[0]: x[1] for x in [x.split(':') for x in thermostat_summary_response.revision_list]}
@@ -44,7 +42,7 @@ def fetch_data_and_store(start: datetime, end: datetime):
 
         df.columns = ['Date', 'Time', *(runtime_report_response.columns.split(','))]
         df['timestamp'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
-        df['timestamp'] = df['timestamp'].dt.tz_localize(timezonestr, ambiguous='infer')
+        df['timestamp'] = df['timestamp'].dt.tz_localize(timezonestr, ambiguous='infer', nonexistent='shift_forward')
         df.set_index('timestamp', inplace=True)
         df.drop(['Date', 'Time'], axis=1, inplace=True)
         df['thermostat_id'] = thermostat_id
